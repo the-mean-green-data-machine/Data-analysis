@@ -1,0 +1,49 @@
+#!/usr/bin/env Python 2.7
+import pandas as pd
+import statsmodels.api as sm
+import numpy as np
+from scipy import stats
+from scipy.stats import ttest_ind, ttest_ind_from_stats
+
+def main():
+    # Reading in data file
+    data = pd.read_excel('xxx.xlsx')
+
+    # attempting to sum duplicate rows
+    data = data.groupby('session').sum()
+
+    # creating percentile buckets for spenders
+    a = np.percentile(data['net_sales_6mth'], 25)
+    b = np.percentile(data['net_sales_6mth'], 50)
+    c = np.percentile(data['net_sales_6mth'], 75)
+
+    # putting respondents into aforementioned buckets
+    data.loc[(data['net_sales_6mth'] <= a), 'spend_tier'] = 1
+    data.loc[(data['net_sales_6mth'] > a) & (data['net_sales_6mth'] <= b), 'spend_tier'] = 2
+    data.loc[(data['net_sales_6mth'] > b) & (data['net_sales_6mth'] <= c), 'spend_tier'] = 3
+    data.loc[(data['net_sales_6mth'] > c), 'spend_tier'] = 4
+    data_spend = pd.DataFrame(data.loc[:, 'spend_tier'].copy())
+
+    # feeding in original data file
+    datar = pd.read_excel('yyy.xlsx', index_col='session')
+
+    # subsetting awareness questions
+    df = datar.loc[:, 'q8a_1':'q8b_29']
+    df.replace('#NULL!', 0, inplace=True)
+
+    # re-setting values of 2 (not aware) to 0
+    df[df > 1] = 0
+
+    # new column for total benefits aware of
+    df["sum"] = df.sum(axis=1)
+
+    # adding the spend_tier column to the awareness questions
+    combined_df = pd.concat([df, data_spend], axis=1, join='inner')
+
+    # grouping by spend tier and calculating group average of sum column
+    grouped = combined_df.groupby('spend_tier').agg([np.alen, np.mean, np.std])['sum']
+    grouped.to_excel("analysis summary stats.xls")
+
+
+if __name__ == '__main__':
+    main()
