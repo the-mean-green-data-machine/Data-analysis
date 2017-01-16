@@ -1,0 +1,71 @@
+import pandas as pd
+
+
+def main():
+    # Loading initial data
+    full_data = pd.read_excel('xxx-xxx.xlsx', index_col='SESSION_ID')
+    # oe_list = ['Q1Ba_' + str(i) for i in range(1, 9)]
+
+    # initialize separate df for text analysis
+    stack_frame = pd.DataFrame()
+    stack_frame['session_id'] = ""
+    stack_frame['Responses'] = ""
+
+    # Would like to create a more generalized option of code below, perhaps with user inputted oe range
+    # Putting oe responses text analysis df
+    # might consider exploring s_id
+    responses = []
+    for i in range(1, 9):
+        for ix in full_data['Q1Ba_'+str(i)]:
+            responses.append(ix)
+    stack_frame['Responses'] = responses
+    # stack_frame['session_id'] = s_id
+
+    # getting rid of response boxes left blank
+    stack_frame.dropna(how='all', inplace=True)
+
+    # lowering the case
+    stack_frame.Responses = [x.lower() for x in stack_frame.Responses]
+
+    # getting rid of special characters
+    stack_frame.replace(to_replace='[^a-zA-Z]', value='', regex=True, inplace=True)
+
+    # Creating list of brands
+    # object with base size value
+    base_size = full_data['LANG_ID'].count()
+    # threshold
+    threshold = base_size * 0.01
+    # counting response instances
+    initial_brand_list = stack_frame['Responses'].value_counts()
+    # # converting series to df
+    brand_list_dict = initial_brand_list.to_dict()
+    # # empty brand list
+    final_brand_list = []
+    # # loop to put brands exceeding threshold into empty brand list
+    # for brand in brand_list_dict['Responses']:
+    for key, value in brand_list_dict.iteritems():
+        if value >= threshold:
+            final_brand_list.append(key)
+
+    # Character distance time!
+    brand_count_dict = {}
+    import jellyfish
+    for response in stack_frame.Responses:
+        for brand in final_brand_list:
+            score = jellyfish.jaro_winkler(brand, response)
+            if score > 0.8:
+                if brand in brand_count_dict:
+                    brand_count_dict[brand] += 1
+                else:
+                    brand_count_dict[brand] = 1
+
+    # Final housekeeping bits
+    brands = pd.Series(brand_count_dict)
+    brands = brands.sort_values(ascending=False)
+    brands = brands.to_frame()
+    brands.index.names = ['Brands']
+    brands.columns = ['Count']
+    brands.to_excel('brand count.xls')
+
+if __name__ == '__main__':
+    main()
