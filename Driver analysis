@@ -1,0 +1,49 @@
+#!/usr/bin/env Python 2.7
+import pandas as pd
+import statsmodels.api as sm
+
+
+# Function to run and generate filtered results of an OLS
+def main():
+    # Reading in data file
+    data = pd.read_excel('xxx.xlsx', index_col='session')
+
+    # Putting needed portions of data file into new data frame
+    data_1 = data.loc[:, 'q9a_1':'q9b_29'].copy()
+    data_2 = data[['cell1', 'q10', 'q11', 'q12', 'q13', 'q14']].copy()
+    data_cleaned = pd.concat([data_1, data_2], axis=1)
+    targ_list = ['q10', 'q11', 'q12', 'q13', 'q14']
+
+    # Creating temporary feature and target DF's
+    writer = pd.ExcelWriter('deliverable.xls')
+    for i in range(1, 8):
+        print i
+        temp_df = data_cleaned[data_cleaned['cell1'] == i].copy()
+        df = []
+        for j in targ_list:
+            target = temp_df[j].copy()
+
+            temp_feat = temp_df.loc[:, 'q9a_1':'q9b_29'].dropna(how='any', axis=1)
+            temp_feat['constant'] = 1
+
+            print temp_feat.columns
+            # Running and printing regression
+            temp_ols = sm.OLS(target, temp_feat).fit()
+            print '\n Cell1 value of ' + str(i)
+            print temp_ols.summary()
+
+            # Cleaning up results
+            # Each set of results is it's own DF, so we append all of them into one array for export
+            results = pd.concat((temp_ols.params, temp_ols.pvalues), axis=1)
+            results = results[results[1] < 0.06]
+            results.index.name = 'feature'
+            results.columns = ['coefficient', 'P value']
+            df.append(results)
+
+        # Exporting results
+        for x, n in enumerate(df):
+            n.to_excel(writer, 'cell'+str(i)+'-q1'+str(x))
+    writer.save()
+
+if __name__ == '__main__':
+    main()
