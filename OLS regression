@@ -1,0 +1,51 @@
+#!/usr/bin/env Python 2.7
+import pandas as pd
+import statsmodels.api as sm
+import numpy as np
+__author__ = 'Jasper Dean'
+
+# Function to run and generate filtered results of an OLS
+def main():
+    # Reading in data file
+    data = pd.read_excel('xxx.xlsx', index_col='session')
+    stacked_data = pd.read_excel('stacked_df.xls', index_col='session')
+    data.replace(to_replace='#NULL!', value=np.nan, inplace=True)
+
+    # Target df
+    target_1 = data.loc[:, 'q4_1' : 'q4_26'].copy()
+    # print target_1.mean(axis=1)
+    target_1['q4_pi'] = target_1.mean(axis=1)
+    target_pi = target_1.loc[:, 'q4_pi']
+    feature_stacked = stacked_data.loc[:, 'q12_1': 'q12_20'].copy()
+    feature_unstacked = data.loc[:, 'q12a_1': 'q12d_20'].copy()
+    # drop rows
+    combined_df = pd.concat([target_pi, feature_unstacked], axis=1)
+    #
+    combined_df.dropna(inplace=True)
+    # print combined_df
+    # re-splitting targets
+    target_pi = combined_df.loc[:, 'q4_pi'].copy()
+    # re-splitting features
+    feature_unstacked = combined_df.loc[:, 'q12a_1': 'q12d_20'].copy()
+    # empty df
+    df_1 = []
+    # Creating temporary feature and target DF's
+    writer_1 = pd.ExcelWriter('628-045 total regression.xls')
+    # constant
+    feature_unstacked['constant'] = 1
+     # Running and printing regression
+    temp_ols = sm.OLS(target_pi, feature_unstacked).fit()
+    # if labelling is needed
+    # print temp_ols.summary()
+
+    # getting a nicer data type
+    results = pd.concat((temp_ols.params, temp_ols.pvalues), axis=1)
+    # results = results[results[1] < 0.06]
+    results.index.name = 'feature'
+    results.columns = ['coefficient', 'P value']
+    results = results.reset_index()
+    results.to_excel('total reg test results.xls')
+
+
+if __name__ == '__main__':
+    main()
